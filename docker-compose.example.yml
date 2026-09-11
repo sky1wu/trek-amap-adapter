@@ -1,0 +1,45 @@
+services:
+  trek:
+    image: ${TREK_IMAGE:-mauriceboe/trek:4.2.1}
+    ports:
+      - '${TREK_PORT:-3000}:3000'
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      PLACES_API_BASE: http://trek-amap-adapter:8080
+      PLACES_API_KEY: ${ADAPTER_TOKEN:-trek-amap-adapter}
+    volumes:
+      - trek-data:/app/data
+      - trek-uploads:/app/uploads
+    depends_on:
+      trek-amap-adapter:
+        condition: service_healthy
+    restart: unless-stopped
+
+  trek-amap-adapter:
+    build: .
+    environment:
+      AMAP_KEY: ${AMAP_KEY:?Set AMAP_KEY in .env}
+      PORT: '8080'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AMAP_ENGLISH_ENABLED: ${AMAP_ENGLISH_ENABLED:-false}
+      AMAP_TIMEOUT_MS: ${AMAP_TIMEOUT_MS:-8000}
+      AMAP_MAX_RESPONSE_BYTES: ${AMAP_MAX_RESPONSE_BYTES:-2000000}
+      AMAP_MAX_CONCURRENT: ${AMAP_MAX_CONCURRENT:-20}
+      CACHE_MAX_ENTRIES: ${CACHE_MAX_ENTRIES:-1000}
+      # Same credential as TREK; this is never forwarded to AMap.
+      ADAPTER_TOKEN: ${ADAPTER_TOKEN:-trek-amap-adapter}
+    expose:
+      - '8080'
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    restart: unless-stopped
+
+volumes:
+  trek-data:
+  trek-uploads:
