@@ -199,7 +199,7 @@ describe('bias, cache and language', () => {
           })
         ).statusCode,
       ).toBe(200);
-      expect(calls[0]?.url.searchParams.get('langCode')).toBe('zh');
+      expect(calls[0]?.url.searchParams.has('langCode')).toBe(false);
     },
   );
 
@@ -207,6 +207,22 @@ describe('bias, cache and language', () => {
     const { app, calls } = setup(undefined, { AMAP_ENGLISH_ENABLED: 'true' });
     await app.inject('/v1/places/amap_B0TESTSKP1?languageCode=en-US');
     expect(calls[0]?.url.searchParams.get('langCode')).toBe('en');
+  });
+
+  it('search and details work when the key rejects every explicit langCode', async () => {
+    const { app, calls } = setup(async (url) =>
+      url.searchParams.has('langCode')
+        ? jsonResponse({ status: '0', infocode: '10012' })
+        : defaultResponse(url),
+    );
+    const search = await app.inject({
+      method: 'POST',
+      url: '/v1/places:searchText',
+      payload: { textQuery: '西安SKP', languageCode: 'zh-CN' },
+    });
+    expect(search.statusCode).toBe(200);
+    expect((await app.inject('/v1/places/amap_B0TESTSKP1?languageCode=en')).statusCode).toBe(200);
+    expect(calls.every((call) => !call.url.searchParams.has('langCode'))).toBe(true);
   });
 
   it('handles dateline rectangles without biasing to Greenwich', () => {

@@ -34,21 +34,24 @@ TREK main/v4.2.1 的 9 处 Google Places 调用中，media 在空照片列表下
 
 ## 验证结果
 
-| 检查                                          | 结果                    |
-| --------------------------------------------- | ----------------------- |
-| Node.js 24.14.0：144 项自动测试               | 通过                    |
-| Node.js 22.23.2：144 项自动测试               | 通过                    |
-| TypeScript strict、ESLint、Prettier、生产构建 | 通过                    |
-| 依赖安装时 npm audit                          | 0 vulnerabilities       |
-| 真实高德十地点 API 验收                       | 未执行，未提供 AMAP_KEY |
-| 随机五 POI 的 OSM/OpenFreeMap 视觉对照        | 未执行，依赖真实坐标    |
-| TREK 保存、重开、重启人工验收                 | 未执行                  |
-| Docker/Compose 本机运行、双架构镜像           | 未执行，本机无 Docker   |
-| GitHub Actions                                | 已配置，尚未推送/运行   |
+| 检查                                               | 结果                       |
+| -------------------------------------------------- | -------------------------- |
+| Windows Node.js 24.14.0：145 项自动测试            | 通过                       |
+| WSL Docker / Linux Node.js 22.23.2：145 项自动测试 | 通过                       |
+| TypeScript strict、ESLint、Prettier、生产构建      | 通过                       |
+| 依赖安装时 npm audit                               | 0 vulnerabilities          |
+| 真实高德十地点 API 验收                            | 搜索、提示、详情全部通过   |
+| OSM/OpenFreeMap 视觉对照                           | 真实坐标已记录，视觉待确认 |
+| TREK 保存、重开、重启人工验收                      | 未执行                     |
+| WSL Docker amd64 与完整 Compose 栈                 | 通过                       |
+| ARM64 容器运行                                     | 未执行，本机无 ARM64 仿真  |
+| GitHub Actions                                     | 已配置，尚未推送/运行      |
 
 自动接口测试包含模拟持久化 ID 后新建 Adapter 实例重新解析；它不能替代实际 TREK 数据库/界面重启验收。
 
 另外已在实际项目目录执行 `npm ci` 和完整检查，并用 Node.js 22.23.2 启动生产构建，通过真实 HTTP 验证 `/health`、无凭据返回 401 和 `photos=[]`；该检查没有调用高德。Compose 与 CI YAML 已通过解析和内部服务地址检查，但不能替代 Docker 实际运行。
+
+2026-09-12 已补充 WSL Docker 实际运行：完整 Compose 中 TREK 4.2.1 与 Adapter 均 healthy，从 TREK 容器成功查询真实西安SKP；Adapter SIGTERM 退出码为 0，重新启动后同一 `amap_` ID 可正常查询。发现并修复显式中文 `langCode` 触发高德 `10012` 的问题。详见 [wsl-validation.md](wsl-validation.md)。
 
 ## 启动与 TREK 配置
 

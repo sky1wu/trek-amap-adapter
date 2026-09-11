@@ -31,10 +31,12 @@ export class PlacesService {
     this.regions = new TtlCache(config.CACHE_MAX_ENTRIES);
   }
 
-  private language(language: string): string {
+  private languageParameters(language: string): Record<string, string> {
+    // Even explicit langCode=zh can require AMap's paid multilingual permission.
+    // Omitting the parameter uses standard Chinese results with a normal Web key.
     return this.config.AMAP_ENGLISH_ENABLED === 'true' && /^en(?:-|$)/i.test(language)
-      ? 'en'
-      : 'zh';
+      ? { langCode: 'en' }
+      : {};
   }
 
   private async biasParameters(bias: LocationBias | undefined, request: FastifyRequest) {
@@ -87,7 +89,7 @@ export class PlacesService {
       keywords: input.textQuery,
       show_fields: 'business',
       page_size: String(input.pageSize),
-      langCode: this.language(input.languageCode),
+      ...this.languageParameters(input.languageCode),
       city_limit: 'false',
       ...(bias.city ? { region: bias.city } : {}),
     });
@@ -149,7 +151,7 @@ export class PlacesService {
     const data = await this.client.details({
       id: rawId,
       show_fields: 'business',
-      langCode: this.language(language),
+      ...this.languageParameters(language),
     });
     const place = data.pois.map(mapAmapPoiToGooglePlace).find((p) => p?.id === id);
     if (!place) throw new ApiError(404, 'AMap place not found');

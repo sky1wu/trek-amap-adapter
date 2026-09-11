@@ -50,3 +50,5 @@
 3. 扩展错误与 TREK 契约测试，Docker/Compose、CI、README、真实 Key smoke 脚本及坐标验证记录。
 
 验收先用 mock 自动验证，有 AMAP_KEY 再执行真实 POI 测试。无 Docker 或 Key 时明确记录未完成的环境验收，不用 mock 结果替代真实地图定位证据。
+
+2026-09-12 实测补充：显式 `langCode=zh` 同样触发当前普通 Key 的多语言权限错误 `10012`，默认中文必须省略 `langCode`。已修复搜索及详情，并加入回归测试；详细证据见 [WSL 验收记录](wsl-validation.md)。

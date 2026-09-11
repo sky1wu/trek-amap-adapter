@@ -114,6 +114,8 @@ npm start
 
 仅支持 [上游契约](docs/implementation-plan.md) 中 TREK 实际使用的请求字段。输入关键词限制为 80 字符；JSON body 上限 16 KiB。请求语言接受合法 BCP-47 形式，未知语言默认使用中文。`en` 也默认回退中文；启用英文权限后搜索与详情发送 `langCode=en`，输入提示仍使用高德默认语言。`sessionToken` 被接受但不传到高德。
 
+默认中文请求省略高德 `langCode` 参数。实测普通 Key 显式传 `langCode=zh` 也可能返回 `10012`；省略后可正常使用。只在明确启用英文且请求英文时发送该参数。
+
 ID 使用 `amap_B0...`，不含冒号、斜杠或 URL 元字符。Mapper 过滤无有效 ID、名称或坐标的 POI；输入提示使用 `datatype=poi` 并去除无法解析的提示、公交线路以及重复 ID，保留原始顺序。
 
 评分、电话仅从 `show_fields=business` 的真实字段映射。未知评分、评论数、网站、营业时间和营业状态省略，不猜测；高德分类不冒充 Google types，因此返回 `types=[]`。`googleMapsUri=null`，避免显示“Google Maps”却打开高德。
@@ -147,7 +149,9 @@ npm run smoke
 
 `smoke` 需要 `.env` 或环境中的 `AMAP_KEY`，会真实调用高德并消耗配额，按任务书的十个 POI 依次验证搜索、提示与详情，保存实际 GCJ-02/WGS-84 坐标到已忽略的 `docs/smoke-results.json`。未设置 Key 时明确跳过。API 通过后还需在 TREK 中确认名称、地址、地图 Marker、保存重开和重启结果；脚本不会声称已完成这些人工步骤。
 
-本次本地已通过 Node.js 22 与 24 下 144 项测试，以及类型/Lint/格式/生产构建。没有提供真实 `AMAP_KEY`，本机也没有 Docker，因此真实 POI、OpenFreeMap Marker、TREK 保存/重启以及 Docker 容器/双架构运行仍待验证。仓库提供 CI 在 Linux amd64/arm64 构建并检查健康接口；尚未远程执行该 CI。
+2026-09-12 验收：Windows Node.js 24 和 WSL Docker 内 Linux Node.js 22 下 **145 项测试通过**，类型/Lint/格式/生产构建通过。Docker amd64 镜像、完整 Compose 栈、真实高德十地点搜索/提示/详情、TREK 容器到适配器的调用链、非 root/只读运行、健康检查与适配器重启后详情均通过。详见 [WSL 验收记录](docs/wsl-validation.md)。
+
+OpenFreeMap Marker 视觉对照及 TREK 界面保存/重开/重启仍需人工验收；本机未配置 ARM64 仿真，ARM64 容器尚未运行。仓库已配置双架构 CI，尚未远程执行。
 
 ## 已知限制和后续阶段
 
