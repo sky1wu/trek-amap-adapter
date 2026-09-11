@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+work/
+.env
+.env.*
+!.env.example
+*.log
+/任务书.md
+docs/smoke-results.json
+
