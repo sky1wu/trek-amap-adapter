@@ -75,10 +75,9 @@ PLACES_API_KEY=trek-amap-adapter
 
 镜像地址：`ghcr.io/sky1wu/trek-amap-adapter:latest`，包含 `linux/amd64` 和 `linux/arm64`。每次 `main` 通过 CI 后，工作流在两种原生架构上构建和检查，再发布 `sha-<完整提交 SHA>`；拉取、运行验证通过后更新 `latest`。也可在 Actions 中手动运行 CI。发布使用仓库自带的 `GITHUB_TOKEN`，无需额外配置发布密钥。
 
-镜像默认私有。部署机器先使用有包访问权限的 GitHub 账号登录，密码填写具有 `read:packages` 权限的 personal access token (classic)，详见 [GitHub GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)。这与 `.env` 中的高德 `AMAP_KEY` 是不同凭据。
+当前[镜像包](https://github.com/users/sky1wu/packages/container/package/trek-amap-adapter)为公开镜像，部署机器无需登录 GHCR 即可拉取。
 
 ```sh
-docker login ghcr.io -u sky1wu
 docker pull ghcr.io/sky1wu/trek-amap-adapter:latest
 # 已按快速部署配置 .env 后，直接拉取并运行，无需本地构建
 docker compose -f docker-compose.example.yml pull
@@ -86,6 +85,8 @@ docker compose -f docker-compose.example.yml up -d --no-build
 ```
 
 需要固定版本时，在 `.env` 中设置 `ADAPTER_IMAGE=ghcr.io/sky1wu/trek-amap-adapter:sha-<完整提交 SHA>`，然后重新执行上述 Compose 命令。`--build` 仍可用于从本地源码构建。
+
+如果以后将包改为私有，部署机器需先执行 `docker login ghcr.io -u sky1wu`，密码使用具有包访问权限和 `read:packages` scope 的 personal access token (classic)，见 [GitHub GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)。这与 `.env` 中的高德 `AMAP_KEY` 是不同凭据。
 
 ## 本地开发
 
