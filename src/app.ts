@@ -12,6 +12,8 @@ import {
   textSearchSchema,
 } from './google/requests.js';
 import { PlacesService } from './service.js';
+import { RoutingService } from './routing/service.js';
+import { routeRequestSchema } from './routing/requests.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -41,7 +43,9 @@ export function buildApp(config: Config, options: AppOptions = {}) {
   });
   app.decorateRequest('cacheHit', false);
   app.decorateRequest('startedAt', 0);
-  const service = new PlacesService(config, new AmapClient(config, options.fetcher));
+  const client = new AmapClient(config, options.fetcher);
+  const service = new PlacesService(config, client);
+  const routing = new RoutingService(config, client);
 
   app.addHook('onRequest', async (request, reply) => {
     request.startedAt = performance.now();
@@ -106,6 +110,9 @@ export function buildApp(config: Config, options: AppOptions = {}) {
   );
 
   app.get('/health', async () => ({ status: 'ok' }));
+  app.post('/v1/routes', async (request) =>
+    routing.route(routeRequestSchema.parse(request.body), request),
+  );
   app.post('/v1/places::searchText', async (request) => {
     fieldMaskSchema.parse(request.headers['x-goog-fieldmask']);
     return service.search(textSearchSchema.parse(request.body), request);

@@ -2,10 +2,19 @@ import type { z } from 'zod';
 import type { Config } from '../config.js';
 import { ApiError, upstreamError } from '../errors.js';
 import { envelopeSchema, geocodeSchema, poisSchema, tipsSchema } from './types.js';
+import { routeEnvelopeSchema } from '../routing/mapper.js';
+import type { RouteProfile } from '../routing/requests.js';
 
 export type FetchLike = (url: URL, init: RequestInit) => Promise<Response>;
 type Endpoint =
-  '/v5/place/text' | '/v5/place/detail' | '/v3/assistant/inputtips' | '/v3/geocode/regeo';
+  | '/v5/place/text'
+  | '/v5/place/detail'
+  | '/v3/assistant/inputtips'
+  | '/v3/geocode/regeo'
+  | '/v5/direction/driving'
+  | '/v5/direction/walking'
+  | '/v5/direction/bicycling'
+  | '/v5/direction/transit/integrated';
 
 async function readJson(response: Response, limit: number): Promise<unknown> {
   const length = response.headers.get('content-length');
@@ -50,12 +59,17 @@ export class AmapClient {
     parameters: Record<string, string>,
     schema: z.ZodType<T>,
     timeoutMs = this.config.AMAP_TIMEOUT_MS,
+    signal?: AbortSignal,
   ): Promise<T> {
+    if (signal?.aborted) throw new ApiError(504, 'AMap upstream timeout');
     if (this.active >= this.config.AMAP_MAX_CONCURRENT)
       throw new ApiError(503, 'Adapter upstream concurrency limit reached');
     this.active++;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, controller.signal])
+      : controller.signal;
     const url = new URL(path, 'https://restapi.amap.com');
     // Caller headers/keys/URLs cannot reach this request.
     url.search = new URLSearchParams({
@@ -66,7 +80,7 @@ export class AmapClient {
     try {
       const response = await this.fetcher(url, {
         method: 'GET',
-        signal: controller.signal,
+        signal: combinedSignal,
         redirect: 'error',
         headers: { Accept: 'application/json' },
       });
@@ -75,7 +89,7 @@ export class AmapClient {
       try {
         raw = await readJson(response, this.config.AMAP_MAX_RESPONSE_BYTES);
       } catch (error) {
-        if (!response.ok && !controller.signal.aborted) {
+        if (!response.ok && !combinedSignal.aborted) {
           throw new ApiError(
             response.status === 429 ? 429 : response.status === 504 ? 504 : 502,
             'AMap HTTP upstream error',
@@ -101,7 +115,7 @@ export class AmapClient {
       if (!data.success) throw new ApiError(502, 'Invalid AMap response data');
       return data.data;
     } catch (error) {
-      if (controller.signal.aborted) throw new ApiError(504, 'AMap upstream timeout');
+      if (combinedSignal.aborted) throw new ApiError(504, 'AMap upstream timeout');
       if (error instanceof ApiError) throw error;
       throw new ApiError(502, 'AMap upstream network error');
     } finally {
@@ -119,12 +133,28 @@ export class AmapClient {
   autocomplete(parameters: Record<string, string>) {
     return this.request('/v3/assistant/inputtips', parameters, tipsSchema);
   }
-  region(location: string) {
+  directions(profile: RouteProfile, parameters: Record<string, string>, signal: AbortSignal) {
+    const paths = {
+      driving: '/v5/direction/driving',
+      walking: '/v5/direction/walking',
+      cycling: '/v5/direction/bicycling',
+      transit: '/v5/direction/transit/integrated',
+    } as const;
+    return this.request(
+      paths[profile],
+      parameters,
+      routeEnvelopeSchema,
+      this.config.AMAP_TIMEOUT_MS,
+      signal,
+    );
+  }
+  region(location: string, signal?: AbortSignal) {
     return this.request(
       '/v3/geocode/regeo',
       { location, extensions: 'base' },
       geocodeSchema,
       Math.min(this.config.AMAP_TIMEOUT_MS, 1500),
+      signal,
     );
   }
 }
