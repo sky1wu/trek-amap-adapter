@@ -1,0 +1,46 @@
+{
+  "id": "amap-routes",
+  "name": "高德路线",
+  "version": "0.2.0",
+  "apiVersion": 1,
+  "author": "Sky1Wu",
+  "description": "直连高德提供驾车、步行、骑行路线，复用独立适配器的路线与 WGS-84 坐标转换代码。",
+  "homepage": "https://github.com/sky1wu/trek-amap-adapter",
+  "license": "MIT",
+  "icon": "Route",
+  "type": "integration",
+  "trek": ">=4.2.1 <5.0.0",
+  "nativeModules": false,
+  "permissions": ["hook:route-provider", "db:read:trips", "http:outbound:restapi.amap.com"],
+  "capabilities": {
+    "routeProfiles": [
+      {
+        "id": "driving",
+        "label": "高德驾车",
+        "icon": "Car"
+      },
+      {
+        "id": "walking",
+        "label": "高德步行",
+        "icon": "Footprints"
+      },
+      {
+        "id": "cycling",
+        "label": "高德骑行",
+        "icon": "Bike"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "amapKey",
+      "label": "高德 Web 服务 Key",
+      "scope": "instance",
+      "input_type": "password",
+      "secret": true,
+      "required": true,
+      "hint": "需具备路径规划和逆地理编码权限，可使用 Places 适配器的同一个 AMAP_KEY"
+    }
+  ],
+  "egress": ["restapi.amap.com"]
+}

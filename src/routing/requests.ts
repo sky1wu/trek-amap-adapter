@@ -7,6 +7,10 @@ export const routeRequestSchema = z.strictObject({
       z.strictObject({
         lat: z.number().finite().min(-90).max(90),
         lng: z.number().finite().min(-180).max(180),
+        amapId: z
+          .string()
+          .regex(/^[A-Za-z0-9]{1,64}$/)
+          .optional(),
       }),
     )
     .min(2)

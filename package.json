@@ -1,9 +1,9 @@
 {
   "name": "trek-amap-adapter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Independent AMap Places adapter for TREK",
+  "description": "Independent AMap Places and routing adapter with TREK plugins",
   "engines": {
     "node": ">=22"
   },
@@ -18,7 +18,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build",
-    "smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke.ts"
+    "smoke": "node --env-file-if-exists=.env --import tsx scripts/smoke.ts",
+    "smoke:routes": "node --env-file-if-exists=.env --import tsx scripts/smoke-routes.ts",
+    "plugins:build": "node --import tsx scripts/build-plugins.ts"
   },
   "dependencies": {
     "fastify": "^5.12.4",
@@ -27,8 +29,10 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.20.2",
+    "esbuild": "0.28.2",
     "eslint": "^9.39.5",
     "prettier": "^3.9.6",
+    "trek-plugin-sdk": "1.7.0",
     "tsx": "^4.23.13",
     "typescript": "5.9",
     "typescript-eslint": "^8.70.0",

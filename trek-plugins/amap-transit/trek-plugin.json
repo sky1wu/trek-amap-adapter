@@ -1,0 +1,36 @@
+{
+  "id": "amap-transit",
+  "name": "高德公交",
+  "version": "0.2.0",
+  "apiVersion": 1,
+  "author": "Sky1Wu",
+  "description": "直连高德提供公交及地铁换乘路线，复用独立适配器的路线与 WGS-84 坐标转换代码。",
+  "homepage": "https://github.com/sky1wu/trek-amap-adapter",
+  "license": "MIT",
+  "icon": "Bus",
+  "type": "integration",
+  "trek": ">=4.2.1 <5.0.0",
+  "nativeModules": false,
+  "permissions": ["hook:route-provider", "db:read:trips", "http:outbound:restapi.amap.com"],
+  "capabilities": {
+    "routeProfiles": [
+      {
+        "id": "transit",
+        "label": "高德公交",
+        "icon": "Bus"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "amapKey",
+      "label": "高德 Web 服务 Key",
+      "scope": "instance",
+      "input_type": "password",
+      "secret": true,
+      "required": true,
+      "hint": "需具备路径规划和逆地理编码权限，可使用 Places 适配器的同一个 AMAP_KEY"
+    }
+  ],
+  "egress": ["restapi.amap.com"]
+}

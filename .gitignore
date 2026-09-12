@@ -8,4 +8,4 @@ work/
 *.log
 /任务书.md
 docs/smoke-results.json
-
+docs/routes-smoke-results.json

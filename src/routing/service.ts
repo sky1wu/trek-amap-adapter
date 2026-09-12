@@ -57,7 +57,9 @@ export class RoutingService {
         const index = next++;
         const origin = locations[index]!;
         const destination = locations[index + 1]!;
-        const key = JSON.stringify([request.profile, origin, destination]);
+        const originId = request.waypoints[index]!.amapId;
+        const destinationId = request.waypoints[index + 1]!.amapId;
+        const key = JSON.stringify([request.profile, origin, destination, originId, destinationId]);
         const cached = this.legs.get(key);
         if (cached) {
           results[index] = cached;
@@ -74,8 +76,15 @@ export class RoutingService {
           const city2 = await city(destination);
           if (!city1 || !city2) continue;
           Object.assign(parameters, { city1, city2, strategy: '0', AlternativeRoute: '5' });
+          // Transit POI identifiers must be supplied as a pair and use v5 names.
+          if (originId && destinationId)
+            Object.assign(parameters, { originpoi: originId, destinationpoi: destinationId });
         } else if (request.profile === 'driving') parameters.strategy = '32';
         else parameters.alternative_route = '1';
+        if (request.profile === 'driving' || request.profile === 'walking') {
+          if (originId) parameters.origin_id = originId;
+          if (destinationId) parameters.destination_id = destinationId;
+        }
         try {
           const response = await this.client.directions(request.profile, parameters, signal);
           const candidates =
