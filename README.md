@@ -41,6 +41,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   trek-amap-adapter:
+    image: ${ADAPTER_IMAGE:-ghcr.io/sky1wu/trek-amap-adapter:latest}
     build: .
     environment:
       AMAP_KEY: ${AMAP_KEY:?Set AMAP_KEY in .env}
@@ -69,6 +70,22 @@ PLACES_API_KEY=trek-amap-adapter
 `PLACES_API_KEY` 是适配器兼容凭据，**不是高德 Key**。高德 Key 仅设置于适配器的 `AMAP_KEY`。Compose 默认启用相同的 `ADAPTER_TOKEN`；改成自己的令牌时两边保持一致。健康检查不要求凭据。`ENCRYPTION_KEY` 是 TREK 的独立设置，已有部署继续使用原值。
 
 本次核对源码为 [TREK main / v4.2.1，515398f](https://github.com/liketrek/TREK/tree/515398f8ee3000b36a5f5b80365d6214f3f1a723)。旧镜像需确认包含 `PLACES_API_BASE` 支持；容器运行验收状态见下文。
+
+## 使用 GHCR 镜像
+
+镜像地址：`ghcr.io/sky1wu/trek-amap-adapter:latest`，包含 `linux/amd64` 和 `linux/arm64`。每次 `main` 通过 CI 后，工作流在两种原生架构上构建和检查，再发布 `sha-<完整提交 SHA>`；拉取、运行验证通过后更新 `latest`。也可在 Actions 中手动运行 CI。发布使用仓库自带的 `GITHUB_TOKEN`，无需额外配置发布密钥。
+
+镜像默认私有。部署机器先使用有包访问权限的 GitHub 账号登录，密码填写具有 `read:packages` 权限的 personal access token (classic)，详见 [GitHub GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)。这与 `.env` 中的高德 `AMAP_KEY` 是不同凭据。
+
+```sh
+docker login ghcr.io -u sky1wu
+docker pull ghcr.io/sky1wu/trek-amap-adapter:latest
+# 已按快速部署配置 .env 后，直接拉取并运行，无需本地构建
+docker compose -f docker-compose.example.yml pull
+docker compose -f docker-compose.example.yml up -d --no-build
+```
+
+需要固定版本时，在 `.env` 中设置 `ADAPTER_IMAGE=ghcr.io/sky1wu/trek-amap-adapter:sha-<完整提交 SHA>`，然后重新执行上述 Compose 命令。`--build` 仍可用于从本地源码构建。
 
 ## 本地开发
 

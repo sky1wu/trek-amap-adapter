@@ -2,9 +2,17 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/sky1wu/trek-amap-adapter
 
 jobs:
   check:
@@ -22,19 +30,79 @@ jobs:
       - run: npm run check
 
   docker:
+    needs: check
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
     runs-on: ${{ matrix.runner }}
+    env:
+      ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v7.0.1
-      - run: docker build -t trek-amap-adapter:test .
+      - name: Build native image
+        run: docker build --provenance=false --sbom=false --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$IMAGE_NAME:sha-$GITHUB_SHA-$ARCH" .
       - run: docker compose -f docker-compose.example.yml config --quiet
         env:
           AMAP_KEY: ci-placeholder
       - name: Verify container health
         run: |
-          docker run -d --name adapter -e AMAP_KEY=ci-placeholder -p 127.0.0.1:8080:8080 trek-amap-adapter:test
+          docker run -d --name adapter -e AMAP_KEY=ci-placeholder -p 127.0.0.1:8080:8080 "$IMAGE_NAME:sha-$GITHUB_SHA-$ARCH"
           timeout 30 bash -c 'until curl --fail --silent http://127.0.0.1:8080/health; do sleep 1; done'
+      - name: Publish native image to GHCR
+        if: github.repository == 'sky1wu/trek-amap-adapter' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE_NAME:sha-$GITHUB_SHA-$ARCH"
+          docker pull "$IMAGE_NAME:sha-$GITHUB_SHA-$ARCH"
       - if: always()
         run: docker logs adapter
+
+  publish:
+    needs: [check, docker]
+    if: github.repository == 'sky1wu/trek-amap-adapter' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish multi-platform manifest
+        run: |
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --annotation 'index:org.opencontainers.image.description=Independent AMap Places adapter for TREK' \
+            --tag "$IMAGE_NAME:sha-$GITHUB_SHA" \
+            "$IMAGE_NAME:sha-$GITHUB_SHA-amd64" \
+            "$IMAGE_NAME:sha-$GITHUB_SHA-arm64"
+          docker buildx imagetools inspect "$IMAGE_NAME:sha-$GITHUB_SHA" --raw \
+            | jq --exit-status '[.manifests[].platform | .os + "/" + .architecture] | sort == ["linux/amd64", "linux/arm64"]'
+      - name: Pull and run published image
+        run: |
+          docker pull "$IMAGE_NAME:sha-$GITHUB_SHA"
+          test "$(docker image inspect "$IMAGE_NAME:sha-$GITHUB_SHA" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+          docker run -d --name published-adapter -e AMAP_KEY=ci-placeholder -p 127.0.0.1:8080:8080 "$IMAGE_NAME:sha-$GITHUB_SHA"
+          timeout 30 bash -c 'until curl --fail --silent http://127.0.0.1:8080/health; do sleep 1; done'
+      - name: Promote verified image to latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker buildx imagetools create --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$GITHUB_SHA"
+          docker buildx imagetools inspect "$IMAGE_NAME:latest"
+          docker buildx imagetools inspect "$IMAGE_NAME:latest" --raw \
+            | jq --exit-status --arg revision "$GITHUB_SHA" '.annotations["org.opencontainers.image.revision"] == $revision'
+          gh api "users/$GITHUB_REPOSITORY_OWNER/packages/container/trek-amap-adapter" --jq '{name: .name, visibility: .visibility, html_url: .html_url}'
+          printf 'Published `%s:latest` and `%s:sha-%s` for linux/amd64 and linux/arm64.\n' "$IMAGE_NAME" "$IMAGE_NAME" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        run: docker logs published-adapter

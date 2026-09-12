@@ -18,6 +18,7 @@ services:
     restart: unless-stopped
 
   trek-amap-adapter:
+    image: ${ADAPTER_IMAGE:-ghcr.io/sky1wu/trek-amap-adapter:latest}
     build: .
     environment:
       AMAP_KEY: ${AMAP_KEY:?Set AMAP_KEY in .env}
