@@ -80,9 +80,6 @@ jobs:
       - name: Publish multi-platform manifest
         run: |
           docker buildx imagetools create \
-            --annotation "index:org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
-            --annotation 'index:org.opencontainers.image.description=Independent AMap Places adapter for TREK' \
             --tag "$IMAGE_NAME:sha-$GITHUB_SHA" \
             "$IMAGE_NAME:sha-$GITHUB_SHA-amd64" \
             "$IMAGE_NAME:sha-$GITHUB_SHA-arm64"
@@ -95,20 +92,22 @@ jobs:
           docker run -d --name published-adapter -e AMAP_KEY=ci-placeholder -p 127.0.0.1:8080:8080 "$IMAGE_NAME:sha-$GITHUB_SHA"
           timeout 30 bash -c 'until curl --fail --silent http://127.0.0.1:8080/health; do sleep 1; done'
       - name: Promote verified image to latest
+        run: |
+          # Docker manifest lists do not support OCI index annotations. Compare
+          # the exact registry manifests and verify revision on the image config.
+          docker buildx imagetools create --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$GITHUB_SHA"
+          docker buildx imagetools inspect "$IMAGE_NAME:latest"
+          docker buildx imagetools inspect "$IMAGE_NAME:sha-$GITHUB_SHA" --raw > verified-manifest.json
+          docker buildx imagetools inspect "$IMAGE_NAME:latest" --raw > latest-manifest.json
+          cmp verified-manifest.json latest-manifest.json
+          docker pull "$IMAGE_NAME:latest"
+          test "$(docker image inspect "$IMAGE_NAME:latest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+          printf 'Published `%s:latest` and `%s:sha-%s` for linux/amd64 and linux/arm64.\n' "$IMAGE_NAME" "$IMAGE_NAME" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Show package metadata
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Reapply index annotations: copying a mixed-media index can otherwise
-          # produce a Docker manifest list and discard its OCI metadata.
-          docker buildx imagetools create \
-            --annotation "index:org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
-            --annotation 'index:org.opencontainers.image.description=Independent AMap Places adapter for TREK' \
-            --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$GITHUB_SHA"
-          docker buildx imagetools inspect "$IMAGE_NAME:latest"
-          docker buildx imagetools inspect "$IMAGE_NAME:latest" --raw \
-            | jq --exit-status --arg revision "$GITHUB_SHA" '.annotations["org.opencontainers.image.revision"] == $revision'
           gh api "users/$GITHUB_REPOSITORY_OWNER/packages/container/trek-amap-adapter" --jq '{name: .name, visibility: .visibility, html_url: .html_url}'
-          printf 'Published `%s:latest` and `%s:sha-%s` for linux/amd64 and linux/arm64.\n' "$IMAGE_NAME" "$IMAGE_NAME" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
       - if: always()
         run: docker logs published-adapter
