@@ -68,41 +68,72 @@ jobs:
 
   publish:
     needs: [check, docker]
-    if: github.repository == 'sky1wu/trek-amap-adapter' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.repository == 'sky1wu/trek-amap-adapter' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
+      contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Resolve source commit
+        run: printf 'SOURCE_SHA=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Validate release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
       - name: Log in to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Publish multi-platform manifest
+        if: github.ref == 'refs/heads/main'
         run: |
           docker buildx imagetools create \
-            --tag "$IMAGE_NAME:sha-$GITHUB_SHA" \
-            "$IMAGE_NAME:sha-$GITHUB_SHA-amd64" \
-            "$IMAGE_NAME:sha-$GITHUB_SHA-arm64"
-          docker buildx imagetools inspect "$IMAGE_NAME:sha-$GITHUB_SHA" --raw \
+            --tag "$IMAGE_NAME:sha-$SOURCE_SHA" \
+            "$IMAGE_NAME:sha-$SOURCE_SHA-amd64" \
+            "$IMAGE_NAME:sha-$SOURCE_SHA-arm64"
+          docker buildx imagetools inspect "$IMAGE_NAME:sha-$SOURCE_SHA" --raw \
             | jq --exit-status '[.manifests[].platform | .os + "/" + .architecture] | sort == ["linux/amd64", "linux/arm64"]'
       - name: Pull and run published image
         run: |
-          docker pull "$IMAGE_NAME:sha-$GITHUB_SHA"
-          test "$(docker image inspect "$IMAGE_NAME:sha-$GITHUB_SHA" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
-          docker run -d --name published-adapter -e AMAP_KEY=ci-placeholder -p 127.0.0.1:8080:8080 "$IMAGE_NAME:sha-$GITHUB_SHA"
+          docker pull "$IMAGE_NAME:sha-$SOURCE_SHA"
+          test "$(docker image inspect "$IMAGE_NAME:sha-$SOURCE_SHA" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$SOURCE_SHA"
+          docker run -d --name published-adapter -e AMAP_KEY=ci-placeholder -p 127.0.0.1:8080:8080 "$IMAGE_NAME:sha-$SOURCE_SHA"
           timeout 30 bash -c 'until curl --fail --silent http://127.0.0.1:8080/health; do sleep 1; done'
       - name: Promote verified image to latest
+        if: github.ref == 'refs/heads/main'
         run: |
           # Docker manifest lists do not support OCI index annotations. Compare
           # the exact registry manifests and verify revision on the image config.
-          docker buildx imagetools create --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$GITHUB_SHA"
+          docker buildx imagetools create --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$SOURCE_SHA"
           docker buildx imagetools inspect "$IMAGE_NAME:latest"
-          docker buildx imagetools inspect "$IMAGE_NAME:sha-$GITHUB_SHA" --raw > verified-manifest.json
+          docker buildx imagetools inspect "$IMAGE_NAME:sha-$SOURCE_SHA" --raw > verified-manifest.json
           docker buildx imagetools inspect "$IMAGE_NAME:latest" --raw > latest-manifest.json
           cmp verified-manifest.json latest-manifest.json
           docker pull "$IMAGE_NAME:latest"
-          test "$(docker image inspect "$IMAGE_NAME:latest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
-          printf 'Published `%s:latest` and `%s:sha-%s` for linux/amd64 and linux/arm64.\n' "$IMAGE_NAME" "$IMAGE_NAME" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          test "$(docker image inspect "$IMAGE_NAME:latest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$SOURCE_SHA"
+          printf 'Published `%s:latest` and `%s:sha-%s` for linux/amd64 and linux/arm64.\n' "$IMAGE_NAME" "$IMAGE_NAME" "$SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish fixed release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # Release tags reuse the verified main image; never rebuild or replace
+          # an existing version with different contents.
+          docker buildx imagetools inspect "$IMAGE_NAME:sha-$SOURCE_SHA" --raw > verified-manifest.json
+          if docker buildx imagetools inspect "$IMAGE_NAME:$GITHUB_REF_NAME" --raw > release-manifest.json 2> release-lookup.log; then
+            cmp verified-manifest.json release-manifest.json
+          elif grep -Eq 'not found|manifest unknown' release-lookup.log; then
+            docker buildx imagetools create --tag "$IMAGE_NAME:$GITHUB_REF_NAME" "$IMAGE_NAME:sha-$SOURCE_SHA"
+          else
+            cat release-lookup.log >&2
+            exit 1
+          fi
+          docker buildx imagetools inspect "$IMAGE_NAME:$GITHUB_REF_NAME" --raw > release-manifest.json
+          cmp verified-manifest.json release-manifest.json
+          docker pull "$IMAGE_NAME:$GITHUB_REF_NAME"
+          test "$(docker image inspect "$IMAGE_NAME:$GITHUB_REF_NAME" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$SOURCE_SHA"
+          docker buildx imagetools inspect "$IMAGE_NAME:$GITHUB_REF_NAME"
+          printf 'Published `%s:%s` from verified commit `%s`.\n' "$IMAGE_NAME" "$GITHUB_REF_NAME" "$SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
       - name: Show package metadata
         continue-on-error: true
         env:

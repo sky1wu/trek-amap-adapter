@@ -30,7 +30,7 @@ TREK main/v4.2.1 的 9 处 Google Places 调用中，media 在空照片列表下
 
 ## 坐标策略
 
-按[高德官方说明](https://lbs.amap.com/faq/advisory/others/39840/)，大陆、香港、澳门、台湾 POI 使用 GCJ-02→WGS-84 迭代反算，bias 使用 WGS-84→GCJ-02，海外原样返回。Natural Earth 范围已补入 HKG、MAC、TWN，香港和澳门包含港口及填海区，港澳台有 1 km 近岸容差。输入校验经纬度，不混用经纬顺序。大陆及港澳台离线坐标、搜索/详情输出和 bias 回归已通过，真实 Marker 位置尚未验证；见 [coordinate-validation.md](coordinate-validation.md)。
+按[高德官方说明](https://lbs.amap.com/faq/advisory/others/39840/)，大陆、香港、澳门、台湾 POI 使用 GCJ-02→WGS-84 迭代反算，bias 使用 WGS-84→GCJ-02，海外原样返回。Natural Earth 范围已补入 HKG、MAC、TWN，香港和澳门包含港口及填海区，港澳台有 1 km 近岸容差。输入校验经纬度，不混用经纬顺序。大陆及港澳台离线坐标、搜索/详情输出和 bias 回归已通过；维护者确认西安、香港 TREK UI 实测通过，见[人工验收记录](ui-acceptance.md)及[坐标验证](coordinate-validation.md)。
 
 ## 验证结果
 
@@ -41,10 +41,9 @@ TREK main/v4.2.1 的 9 处 Google Places 调用中，media 在空照片列表下
 | TypeScript strict、ESLint、Prettier、生产构建      | 通过                                                                              |
 | 依赖安装时 npm audit                               | 0 vulnerabilities                                                                 |
 | 真实高德十地点 API 验收                            | 搜索、提示、详情全部通过                                                          |
-| OSM/OpenFreeMap 视觉对照                           | 真实坐标已记录，视觉待确认                                                        |
-| TREK 保存、重开、重启人工验收                      | 未执行                                                                            |
+| TREK UI 人工验收                                   | 已完成：西安、香港实测通过（维护者确认）                                          |
 | WSL Docker amd64 与完整 Compose 栈                 | 通过                                                                              |
-| ARM64 容器运行                                     | 未执行，本机无 ARM64 仿真                                                         |
+| ARM64 容器运行                                     | GitHub Actions 原生 runner 构建及健康检查通过                                     |
 | GitHub Actions                                     | 已配置，结果见[仓库 Actions](https://github.com/sky1wu/trek-amap-adapter/actions) |
 
 自动接口测试包含模拟持久化 ID 后新建 Adapter 实例重新解析；它不能替代实际 TREK 数据库/界面重启验收。
@@ -58,13 +57,14 @@ TREK main/v4.2.1 的 9 处 Google Places 调用中，media 在空照片列表下
 复制 `.env.example` 为 `.env`，填写 AMAP_KEY；执行：
 
 ```sh
-docker compose -f docker-compose.example.yml up -d --build
+docker compose -f docker-compose.example.yml pull
+docker compose -f docker-compose.example.yml up -d --no-build
 ```
 
-TREK 配置 `PLACES_API_BASE=http://trek-amap-adapter:8080`、`PLACES_API_KEY=trek-amap-adapter`；高德 Key 只进入 Adapter。完整可复制的 Compose 在 [README](../README.md) 与 [示例文件](../docker-compose.example.yml)。示例默认 TREK 4.2.1，容器采用非 root Node 22，适配器端口只供内部访问。
+TREK 配置 `PLACES_API_BASE=http://trek-amap-adapter:8080`、`PLACES_API_KEY=trek-amap-adapter`；高德 Key 只进入 Adapter。完整可复制的 Compose 在 [README](../README.md) 与 [示例文件](../docker-compose.example.yml)。示例默认 TREK 4.2.1、Adapter `ghcr.io/sky1wu/trek-amap-adapter:v0.1.0`，容器采用非 root Node 22，适配器端口只供内部访问。
 
 ## 限制及后续
 
 目前仍可能显示 Google source；地图和 routes 未替换；无 Google 照片、评论和简介；旧 Google ID 不自动转换；语言和 bias 不是完整 Google 语义。边界和填海地区仍需实测。
 
-Phase 2 只记录路线与照片适配建议，未实现。Phase 3 再设计原生 AMap Provider，不在本次范围。
+v0.1.0 完成 Places 适配器阶段。Phase 2 高德路线规划在本次发版之后独立推进；Phase 3 再设计原生 AMap Provider。

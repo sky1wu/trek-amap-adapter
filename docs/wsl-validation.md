@@ -64,13 +64,17 @@ AMAP_KEY=你的高德Web服务Key
 在 WSL 项目根目录运行：
 
 ```sh
-docker compose -f docker-compose.example.yml up -d --build --wait
+docker compose -f docker-compose.example.yml pull
+docker compose -f docker-compose.example.yml up -d --no-build --wait
 ```
 
 有 Node.js 22 开发环境时执行 `npm ci`、`npm run smoke` 可复测十个地点。本次通过 Dockerfile 的 `build` 阶段运行 smoke，由环境文件注入 Key，未将其写入镜像或日志。
 
-## 未完成的范围
+## 后续验收更新
 
-- OpenStreetMap/OpenFreeMap 视觉对照，特别是入口、建筑中心和填海地区。
-- TREK 界面保存、重开及 TREK 重启后的完整人工流程。容器内 HTTP 测试不能替代该流程。
-- ARM64 构建/运行：当前 BuildKit 仅支持 amd64 及其变体，没有注册额外全局仿真。CI 提供 ARM64 原生 runner，尚未远程执行。
+- 2026-09-12，维护者确认 TREK UI 人工验收已完成，西安、香港实测通过，见[人工验收记录](ui-acceptance.md)。
+- GitHub Actions 已通过 amd64、arm64 原生构建及健康检查，见[发布验证](https://github.com/sky1wu/trek-amap-adapter/actions/runs/34672393343)。
+- WSL 已成功免登录拉取公开 GHCR 镜像，验证 `/health`、非 root 用户以及港澳台坐标转换。
+- 部署示例默认固定为 `ghcr.io/sky1wu/trek-amap-adapter:v0.1.0`。
+
+后续扩大入口、建筑中心、填海区及更多城市的实测覆盖。

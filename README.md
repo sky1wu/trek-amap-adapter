@@ -13,13 +13,14 @@
 ```sh
 cp .env.example .env
 # 编辑 .env，填写 AMAP_KEY
-docker compose -f docker-compose.example.yml up -d --build
+docker compose -f docker-compose.example.yml pull
+docker compose -f docker-compose.example.yml up -d --no-build
 docker compose -f docker-compose.example.yml ps
 ```
 
 PowerShell 第一步使用 `Copy-Item .env.example .env`。默认 TREK 端口为 3000；适配器不映射宿主机端口。首次登录信息按 TREK 官方流程从其日志取得。
 
-完整 Compose 示例见 [docker-compose.example.yml](docker-compose.example.yml)，复制为 `docker-compose.yml` 后可直接执行 `docker compose up -d --build`：
+完整 Compose 示例见 [docker-compose.example.yml](docker-compose.example.yml)，默认使用固定版本 `v0.1.0`。复制为 `docker-compose.yml` 后执行 `docker compose pull` 和 `docker compose up -d --no-build`：
 
 ```yaml
 services:
@@ -41,7 +42,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
   trek-amap-adapter:
-    image: ${ADAPTER_IMAGE:-ghcr.io/sky1wu/trek-amap-adapter:latest}
+    image: ${ADAPTER_IMAGE:-ghcr.io/sky1wu/trek-amap-adapter:v0.1.0}
     build: .
     environment:
       AMAP_KEY: ${AMAP_KEY:?Set AMAP_KEY in .env}
@@ -73,18 +74,22 @@ PLACES_API_KEY=trek-amap-adapter
 
 ## 使用 GHCR 镜像
 
-镜像地址：`ghcr.io/sky1wu/trek-amap-adapter:latest`，包含 `linux/amd64` 和 `linux/arm64`。每次 `main` 通过 CI 后，工作流在两种原生架构上构建和检查，再发布 `sha-<完整提交 SHA>`；拉取、运行验证通过后更新 `latest`。也可在 Actions 中手动运行 CI。发布使用仓库自带的 `GITHUB_TOKEN`，无需额外配置发布密钥。
+推荐部署镜像：`ghcr.io/sky1wu/trek-amap-adapter:v0.1.0`，包含 `linux/amd64` 和 `linux/arm64`。版本说明见 [v0.1.0 Release](https://github.com/sky1wu/trek-amap-adapter/releases/tag/v0.1.0)。
+
+每次 `main` 通过 CI 后，工作流在两种原生架构上构建和检查，发布 `sha-<完整提交 SHA>`，并在拉取、运行验证后更新 `latest`。`latest` 跟随开发提交，部署示例默认固定为 `v0.1.0`。发布使用仓库自带的 `GITHUB_TOKEN`，无需额外配置发布密钥。
 
 当前[镜像包](https://github.com/users/sky1wu/packages/container/package/trek-amap-adapter)为公开镜像，部署机器无需登录 GHCR 即可拉取。
 
 ```sh
-docker pull ghcr.io/sky1wu/trek-amap-adapter:latest
+docker pull ghcr.io/sky1wu/trek-amap-adapter:v0.1.0
 # 已按快速部署配置 .env 后，直接拉取并运行，无需本地构建
 docker compose -f docker-compose.example.yml pull
 docker compose -f docker-compose.example.yml up -d --no-build
 ```
 
-需要固定版本时，在 `.env` 中设置 `ADAPTER_IMAGE=ghcr.io/sky1wu/trek-amap-adapter:sha-<完整提交 SHA>`，然后重新执行上述 Compose 命令。`--build` 仍可用于从本地源码构建。
+已有 `.env` 若设置了 `ADAPTER_IMAGE=...:latest`，请改为 `ADAPTER_IMAGE=ghcr.io/sky1wu/trek-amap-adapter:v0.1.0`；未设置则使用默认固定版本。需要定位具体提交时，也可使用 `sha-<完整提交 SHA>`。从本地源码构建时使用 `ADAPTER_IMAGE=trek-amap-adapter:local docker compose -f docker-compose.example.yml up -d --build`。
+
+发版时先等待目标 `main` 提交的 CI 成功，再推送与 `package.json` 版本一致的 `vX.Y.Z` tag。tag CI 将该提交已经验证的 SHA 镜像发布为同名固定版本，并拒绝覆盖内容不同的已有版本。
 
 如果以后将包改为私有，部署机器需先执行 `docker login ghcr.io -u sky1wu`，密码使用具有包访问权限和 `read:packages` scope 的 personal access token (classic)，见 [GitHub GHCR 认证说明](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic)。这与 `.env` 中的高德 `AMAP_KEY` 是不同凭据。
 
@@ -169,11 +174,11 @@ npm run smoke
 
 `check` 包含类型、Lint、格式、单元/接口测试和构建。测试使用 mock 高德响应，覆盖六城市坐标、海外原样返回、ID、异常字段、真实 TREK 请求形状、缓存、空照片、参数校验、上游错误/限流/超时/响应大小和日志密钥保护。
 
-`smoke` 需要 `.env` 或环境中的 `AMAP_KEY`，会真实调用高德并消耗配额，按任务书的十个 POI 依次验证搜索、提示与详情，保存实际 GCJ-02/WGS-84 坐标到已忽略的 `docs/smoke-results.json`。未设置 Key 时明确跳过。API 通过后还需在 TREK 中确认名称、地址、地图 Marker、保存重开和重启结果；脚本不会声称已完成这些人工步骤。
+`smoke` 需要 `.env` 或环境中的 `AMAP_KEY`，会真实调用高德并消耗配额，按任务书的十个 POI 依次验证搜索、提示与详情，保存实际 GCJ-02/WGS-84 坐标到已忽略的 `docs/smoke-results.json`。未设置 Key 时明确跳过。脚本记录 API 验证结果，TREK UI 人工验收结论单独记录在[人工验收记录](docs/ui-acceptance.md)。
 
 2026-09-12 验收：Windows Node.js 24 和 WSL Docker 内 Linux Node.js 22 下 **161 项测试通过**，类型/Lint/格式/生产构建通过，包含港澳台转换范围及接口回归。此前已通过 Docker amd64 镜像、完整 Compose 栈、真实高德十地点搜索/提示/详情、TREK 容器到适配器的调用链、非 root/只读运行、健康检查与适配器重启后详情。详见 [WSL 验收记录](docs/wsl-validation.md)。
 
-OpenFreeMap Marker 视觉对照及 TREK 界面保存/重开/重启仍需人工验收；本机未配置 ARM64 仿真，ARM64 容器尚未运行。仓库已配置双架构 CI，尚未远程执行。
+**TREK UI 人工验收已完成：西安、香港实测通过（2026-09-12，维护者确认）**，详见[人工验收记录](docs/ui-acceptance.md)。GitHub Actions 的 amd64 / arm64 原生构建、运行及健康检查均已通过，WSL 已验证公开 GHCR 镜像的免登录拉取和运行。
 
 ## 已知限制和后续阶段
 
@@ -183,7 +188,7 @@ Adapter 模式下，TREK 内部可能仍将高德 POI 标记为 Google source，
 
 当前不支持高德底图、路线规划、公交、天气、照片代理、Google Reviews 或 Editorial Summary，也不修改 TREK 前端、MCP 和数据库。
 
-- Phase 2：单独设计驾车/步行/骑行/公交路线适配，输入 WGS-84→GCJ-02，返回 polyline GCJ-02→WGS-84；后续再评估照片代理。
+- Phase 2（v0.1.0 发版之后）：高德路线规划，单独设计驾车/步行/骑行/公交路线适配，输入 WGS-84→GCJ-02，返回 polyline GCJ-02→WGS-84；后续再评估照片代理。
 - Phase 3：向 TREK 提原生 AMap Provider 设计，统一数据来源、底图、路线和地图跳转。
 
 文件结构与交付状态见 [交付报告](docs/delivery-report.md)。原始 `任务书.md` 保留在本地，已加入 Git 忽略规则。
