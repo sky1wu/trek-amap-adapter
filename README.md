@@ -4,7 +4,7 @@
 
 支持 Text Search、Autocomplete、Place Details、GCJ-02/WGS-84 双向转换；Phase 2 增加驾车、步行、骑行、公交及配套 TREK 路线插件。Node.js 22、TypeScript strict、Fastify；无数据库，使用有容量上限的内存 TTL 缓存。
 
-**稳定版 `v0.1.0` 仅含 Places，以下快速部署仍固定到该版本。Phase 2 路线插件独立安装，可与原 Places 镜像共用；代码版本为 `0.2.0`，尚未创建 Release。见[路线部署说明](docs/phase-2-routing.md)。**
+**稳定版 `v0.1.0` 仅含 Places，以下快速部署仍固定到该版本。Phase 2 路线插件独立安装，可与原 Places 镜像共用；代码版本为 `0.2.1`，尚未创建 Release。见[路线部署说明](docs/phase-2-routing.md)。**
 
 ## 快速部署
 
@@ -190,7 +190,7 @@ Adapter 模式下，TREK 内部可能仍将高德 POI 标记为 Google source，
 
 当前不支持高德底图、天气、照片代理、Google Reviews 或 Editorial Summary，也不修改 TREK 前端、MCP 和数据库。
 
-- Phase 2：已实现高德驾车/步行/骑行/公交与 TREK 路线插件，输入 WGS-84→GCJ-02，返回完整轨迹 GCJ-02→WGS-84；可匹配保存的高德 POI ID 优化入口。Windows / WSL 共 221 项自动测试通过；西安、香港 8 条真实路线 API 及 TREK 4.2.1 正式插件调用链验证通过。维护者已确认路线功能可用；四种路线图标相同是 TREK 前端的遗留显示问题，补丁已整理。详见[Phase 2 记录](docs/phase-2-routing.md)。
+- Phase 2：已实现高德驾车/步行/骑行/公交与 TREK 路线插件，输入 WGS-84→GCJ-02，返回完整轨迹 GCJ-02→WGS-84；可匹配保存的高德 POI ID 优化入口。Windows / WSL 共 230 项自动测试通过；西安、香港 8 条真实路线 API 及 TREK 4.2.1 正式插件调用链验证通过。0.2.1 修复公交空路段导致整条路线被丢弃的问题，福田口岸至九龙塘已复测通过。维护者已确认初版路线功能可用；四种路线图标相同是 TREK 前端的遗留显示问题，补丁已整理。详见[Phase 2 记录](docs/phase-2-routing.md)。
 - Phase 3：向 TREK 提原生 AMap Provider 设计，统一数据来源、底图、路线和地图跳转。
 
 文件结构与交付状态见 [交付报告](docs/delivery-report.md)。原始 `任务书.md` 保留在本地，已加入 Git 忽略规则。

@@ -1,6 +1,6 @@
 # Phase 2：高德路线规划
 
-代码版本 `0.2.0`，尚未创建 tag / Release。`v0.1.0` 保持为仅包含 Places 的稳定版。
+代码版本 `0.2.1`，尚未创建 tag / Release。`v0.1.0` 保持为仅包含 Places 的稳定版。
 
 ## 接入依据
 
@@ -27,7 +27,7 @@ npm run plugins:build
 
 也可从 GitHub Actions 成功运行的 `trek-amap-plugins` artifact 下载两个 ZIP。
 
-在 TREK Admin → Plugins 上传 `dist/amap-routes-0.2.0.zip` 和 `dist/amap-transit-0.2.0.zip`，分别在 Instance settings 的“高德 Web 服务 Key”填入 Key 后启用。字段名为 `amapKey`，标记为 secret，由 TREK 加密保存；可以使用适配器 `.env` 中 `AMAP_KEY` 的同一个值，需具备路线及逆地理编码权限。具体步骤见[插件安装说明](../trek-plugins/README.md)。无需开启 dev-link 或配置 Allowed hosts。
+在 TREK Admin → Plugins 上传 `dist/amap-routes-0.2.1.zip` 和 `dist/amap-transit-0.2.1.zip`，分别在 Instance settings 的“高德 Web 服务 Key”填入 Key 后启用。字段名为 `amapKey`，标记为 secret，由 TREK 加密保存；可以使用适配器 `.env` 中 `AMAP_KEY` 的同一个值，需具备路线及逆地理编码权限。具体步骤见[插件安装说明](../trek-plugins/README.md)。无需开启 dev-link 或配置 Allowed hosts。
 
 若其他客户端需要新的独立 `/v1/routes` HTTP 接口，可将 `.env` 的 `ADAPTER_IMAGE` 设为 `trek-amap-adapter:phase2-local`，执行 `docker compose -f docker-compose.example.yml up -d --build trek-amap-adapter`。或固定到成功构建的 `ghcr.io/sky1wu/trek-amap-adapter:sha-<完整40位提交>`，执行 Compose pull 和 up。该 HTTP 接口继续使用适配器 `.env` 的 `AMAP_KEY` 与 `ADAPTER_TOKEN`。main 构建更新 `latest`，`v0.1.0` 保持不变。
 
@@ -64,7 +64,7 @@ npm run plugins:build
 
 ## 验证记录（2026-09-12）
 
-Windows Node 24.14.0 / WSL Linux Node 22.23.2：221 项测试，TypeScript、ESLint、Prettier 和生产构建全部通过。
+Windows Node 24.14.0 / WSL Linux Node 22.23.2：230 项测试，TypeScript、ESLint、Prettier 和生产构建全部通过。
 官方 `trek-plugin-sdk@1.7.0` 验证两份 manifest 并打包成功。测试覆盖插件直接调用共享服务、固定出站域名、Key 轮换和必填检查、港澳台轨迹、海外原样输出、鉴权、错误、缓存、坐标范围、响应大小、轨迹上限、途经点顺序、公交候选方案与缺失轨迹。
 
 另在 WSL 全新临时 TREK 4.2.1 生产容器（Node 24.20.0）上传两份实际 ZIP，配置加密 Key、启用插件、创建测试行程，经 `/api/plugin-routes/...` 验证四种模式全部返回有效轨迹与距离／时间。保持正式插件沙箱，不开启 dev-link，不改网络安全规则；测试后已清理临时容器、网络和数据，未修改现有部署。
@@ -88,3 +88,25 @@ WSL 使用现有 Key、公开测试坐标，真实 API 实测：
 重跑命令为 `npm run smoke:routes`，结果写入已忽略的 `docs/routes-smoke-results.json`。没有 Key 时明确跳过。
 
 **Phase 2 路线功能人工验收通过（2026-09-12，维护者确认“功能验证可用”）。** 用户截图展示西安公交路线。遗留问题为四种路线均显示闪电：TREK 4.2.1 忽略已声明的 profile.icon，插件本身已配置不同图标。详情见[人工验收记录](ui-acceptance.md)及[可选的 TREK 图标补丁](upstream/README.md)。
+
+## 0.2.1：福田口岸至九龙塘路线修复（2026-09-12）
+
+维护者随后报告“深圳福田口岸(出境) → 九龙塘(地铁站)”没有路线。WSL 使用截图对应的公开 POI 复现：起点 `B0FFI04UEK`（GCJ-02 `114.069920,22.515636`），终点 `BV10321739`（`114.180820,22.334207`），逆地理编码分别为 `0755` 和 `1852`。
+
+高德 v5 公交接口返回成功（`status=1`、`infocode=10000`）及两条候选路线；首选方案包含步行和“东铁线(落马洲--金钟)”真实轨迹，但 `segments` 最后一项是空对象 `{}`。0.2.0 把这个占位项当成缺少轨迹的路段，导致所有候选方案被丢弃。带、不带 POI ID 均可复现，原因并非这段跨境路线缺少高德覆盖。
+
+0.2.1 仅忽略真正的空对象占位项，保留原方案的轨迹、距离、时间与线路名。非对象、未知的非空路段、有距离但缺少轨迹的路段仍拒绝；全部由空对象组成的方案仍不返回路线。新增 9 项回归测试，覆盖空占位、首选方案保留、跨城 citycode 及不完整轨迹检查。
+
+修复后，历史响应回放及 WSL 真实 API 复测均通过：
+
+| 场景                             |     距离 | 高德返回时间 | 轨迹顶点 |
+| -------------------------------- | -------: | -----------: | -------: |
+| 福田口岸 → 九龙塘，仅坐标        | 34,101 m |       62 min |      266 |
+| 福田口岸 → 九龙塘，带双方 POI ID | 33,700 m |       55 min |      248 |
+| 落马洲站 → 九龙塘，带双方 POI ID | 32,933 m |       40 min |      227 |
+
+均返回东铁线。数值是本次查询结果，接口仍按查询时刻规划，未传入截图中 10 月 2 日的行程日期。
+
+Windows / WSL 构建的两个 ZIP 分别具有相同 SHA-256。在全新临时 TREK 4.2.1 生产容器中先安装 0.2.0、保存加密 Key 并启用，再直接上传 0.2.1；无需重填 Key，真实插件调用返回 33,700 m、3,300 s 和 248 个顶点。临时容器与测试数据已清理，维护者部署尚未更新。
+
+升级时，在 TREK 管理后台上传 `amap-transit-0.2.1.zip`，确认启用后刷新行程页面并重新算路。本问题只需更新公交插件，现有 Places 镜像无需升级。驾车／步行／骑行插件也构建为 0.2.1，以保持共享代码版本一致。图标补丁仍仅保留，不修改 TREK 部署或提交上游 PR。

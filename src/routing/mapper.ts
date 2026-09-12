@@ -72,7 +72,11 @@ export function mapRoutePlan(raw: unknown, transit: boolean): MappedLeg | null {
     const segments = list(plan.segments);
     if (!segments.length) return null;
     for (const rawSegment of segments) {
+      if (!rawSegment || typeof rawSegment !== 'object' || Array.isArray(rawSegment)) return null;
       const segment = record(rawSegment);
+      // AMap can append {} after a complete transit journey (e.g. Futian to Kowloon Tong).
+      // Only skip an empty object; populated segments still require real geometry.
+      if (!Object.keys(segment).length) continue;
       const walking = record(segment.walking);
       const steps = list(walking.steps);
       if (hasContent(walking) && !steps.length && numeric(walking.distance) !== 0) return null;

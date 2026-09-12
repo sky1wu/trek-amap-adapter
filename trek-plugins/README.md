@@ -8,7 +8,7 @@ TREK 每个插件最多声明三个 profile，因此分为两个可独立安装�
 ## 构建和安装
 
 在适配器仓库执行 `npm ci`、`npm run plugins:build`，生成
-`dist/amap-routes-0.2.0.zip` 和 `dist/amap-transit-0.2.0.zip`。
+`dist/amap-routes-0.2.1.zip` 和 `dist/amap-transit-0.2.1.zip`。
 在 TREK 管理后台的 Plugins 页面选择 Upload plugin，上传所需 ZIP 并启用。
 这是本地构建的未签名插件包；TREK 会展示来源及权限提示。
 

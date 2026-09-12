@@ -245,6 +245,63 @@ describe('transit routes', () => {
     expect((await app.inject(request('transit'))).json()).toEqual({ route: null });
     expect(calls.every((c) => c.url.pathname.includes('regeo'))).toBe(true);
   });
+  it('keeps the recommended cross-city plan when AMap appends an empty segment', async () => {
+    let region = 0;
+    const { app, calls } = setup(async (url) =>
+      url.pathname.includes('regeo')
+        ? jsonResponse({
+            status: '1',
+            regeocode: { addressComponent: { citycode: region++ === 0 ? '0755' : '1852' } },
+          })
+        : jsonResponse({
+            status: '1',
+            route: {
+              transits: [
+                { ...transit, segments: [...transit.segments, {}] },
+                { ...transit, distance: '9000' },
+              ],
+            },
+          }),
+    );
+    const response = await app.inject(request('transit'));
+    expect(response.statusCode).toBe(200);
+    const route = response.json<{ route: RouteResult }>().route;
+    expect(route).toEqual({
+      coordinates: [
+        [0, 0],
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ],
+      distance: 2500,
+      duration: 1800,
+      legs: [{ distance: 2500, duration: 1800, note: '地铁2号线' }],
+    });
+    const upstream = calls.find((call) => call.url.pathname.includes('direction'))!.url;
+    expect(upstream.searchParams.get('city1')).toBe('0755');
+    expect(upstream.searchParams.get('city2')).toBe('1852');
+  });
+  it('ignores empty placeholders without changing transit geometry, metrics or line names', () => {
+    expect(
+      mapRoutePlan(
+        { ...transit, segments: [{}, transit.segments[0], {}, transit.segments[1], {}] },
+        true,
+      ),
+    ).toEqual(mapRoutePlan(transit, true));
+  });
+  it('does not accept a transit plan made only of empty placeholders', () => {
+    expect(mapRoutePlan({ ...transit, segments: [{}, {}] }, true)).toBeNull();
+  });
+  it.each([
+    null,
+    [],
+    '',
+    { unsupported: {} },
+    { walking: { distance: '10' } },
+    { bus: { buslines: [{ name: 'Missing track', distance: '1000' }] } },
+  ])('still rejects invalid or incomplete populated segments: %j', (segment) => {
+    expect(mapRoutePlan({ ...transit, segments: [...transit.segments, segment] }, true)).toBeNull();
+  });
   it('uses the next complete plan when a railway has no track geometry', async () => {
     const missing = {
       ...transit,

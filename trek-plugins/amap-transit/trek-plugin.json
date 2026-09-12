@@ -1,7 +1,7 @@
 {
   "id": "amap-transit",
   "name": "高德公交",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "apiVersion": 1,
   "author": "Sky1Wu",
   "description": "直连高德提供公交及地铁换乘路线，复用独立适配器的路线与 WGS-84 坐标转换代码。",
