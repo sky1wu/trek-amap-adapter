@@ -98,7 +98,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker buildx imagetools create --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$GITHUB_SHA"
+          # Reapply index annotations: copying a mixed-media index can otherwise
+          # produce a Docker manifest list and discard its OCI metadata.
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --annotation 'index:org.opencontainers.image.description=Independent AMap Places adapter for TREK' \
+            --tag "$IMAGE_NAME:latest" "$IMAGE_NAME:sha-$GITHUB_SHA"
           docker buildx imagetools inspect "$IMAGE_NAME:latest"
           docker buildx imagetools inspect "$IMAGE_NAME:latest" --raw \
             | jq --exit-status --arg revision "$GITHUB_SHA" '.annotations["org.opencontainers.image.revision"] == $revision'
