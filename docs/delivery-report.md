@@ -1,5 +1,7 @@
 # MVP 交付报告
 
+此报告记录 `v0.1.0` 的 Places 交付。后续 Phase 2 路线功能、221 项测试及西安／香港实测见 [Phase 2 记录](phase-2-routing.md)。
+
 ## 已实现
 
 三个 TREK Places 兼容接口、`amap_` 稳定 ID、集中高德数据 mapper、GCJ-02/WGS-84 迭代转换、城市偏好降级、TTL/LRU 缓存、健康检查、可选适配器鉴权、输入/上游校验、安全日志和错误码转换。

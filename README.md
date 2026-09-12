@@ -1,8 +1,10 @@
 # trek-amap-adapter
 
-为 TREK 提供高德 POI 搜索的独立兼容服务。无需修改 TREK 源码或数据库；保留 TREK 原有 OpenStreetMap / OpenFreeMap 底图，返回 WGS-84 坐标。
+为 TREK 提供高德 POI 搜索和路线规划的独立服务。无需修改 TREK 源码或数据库；保留 TREK 原有 OpenStreetMap / OpenFreeMap 底图，返回 WGS-84 坐标。
 
-支持 Text Search、Autocomplete、Place Details、GCJ-02/WGS-84 双向转换。Node.js 22、TypeScript strict、Fastify；无数据库，使用有容量上限的内存 TTL 缓存。
+支持 Text Search、Autocomplete、Place Details、GCJ-02/WGS-84 双向转换；Phase 2 增加驾车、步行、骑行、公交及配套 TREK 路线插件。Node.js 22、TypeScript strict、Fastify；无数据库，使用有容量上限的内存 TTL 缓存。
+
+**稳定版 `v0.1.0` 仅含 Places，以下快速部署仍固定到该版本。Phase 2 路线插件独立安装，可与原 Places 镜像共用；代码版本为 `0.2.0`，尚未创建 Release。见[路线部署说明](docs/phase-2-routing.md)。**
 
 ## 快速部署
 
@@ -186,9 +188,9 @@ Adapter 模式下，TREK 内部可能仍将高德 POI 标记为 Google source，
 
 只解析 `amap_` ID，不能把以前保存的 Google Place ID 自动映射到高德。Google/Naver 链接导入、Google 专属元数据和境外地点完整覆盖不在 MVP 保证范围。TREK 自身的详情缓存可能比适配器缓存更久，刷新行为仍由 TREK 控制。
 
-当前不支持高德底图、路线规划、公交、天气、照片代理、Google Reviews 或 Editorial Summary，也不修改 TREK 前端、MCP 和数据库。
+当前不支持高德底图、天气、照片代理、Google Reviews 或 Editorial Summary，也不修改 TREK 前端、MCP 和数据库。
 
-- Phase 2（v0.1.0 发版之后）：高德路线规划，单独设计驾车/步行/骑行/公交路线适配，输入 WGS-84→GCJ-02，返回 polyline GCJ-02→WGS-84；后续再评估照片代理。
+- Phase 2：已实现高德驾车/步行/骑行/公交与 TREK 路线插件，输入 WGS-84→GCJ-02，返回完整轨迹 GCJ-02→WGS-84；可匹配保存的高德 POI ID 优化入口。Windows / WSL 共 221 项自动测试通过；西安、香港 8 条真实路线 API 及 TREK 4.2.1 正式插件调用链验证通过。路线 UI 人工验收待完成，Phase 1 的人工验收记录不代表路线验收。详见[Phase 2 记录](docs/phase-2-routing.md)。
 - Phase 3：向 TREK 提原生 AMap Provider 设计，统一数据来源、底图、路线和地图跳转。
 
 文件结构与交付状态见 [交付报告](docs/delivery-report.md)。原始 `任务书.md` 保留在本地，已加入 Git 忽略规则。
