@@ -1,6 +1,6 @@
 # trek-amap-adapter
 
-为 TREK 提供中国大陆高德 POI 搜索的独立兼容服务。无需修改 TREK 源码或数据库；保留 TREK 原有 OpenStreetMap / OpenFreeMap 底图，返回 WGS-84 坐标。
+为 TREK 提供高德 POI 搜索的独立兼容服务。无需修改 TREK 源码或数据库；保留 TREK 原有 OpenStreetMap / OpenFreeMap 底图，返回 WGS-84 坐标。
 
 支持 Text Search、Autocomplete、Place Details、GCJ-02/WGS-84 双向转换。Node.js 22、TypeScript strict、Fastify；无数据库，使用有容量上限的内存 TTL 缓存。
 
@@ -124,7 +124,11 @@ FieldMask 允许返回字段超集。仅请求 `photos`、`reviews`、`editorial
 
 ## 坐标与位置偏好
 
-高德返回的大陆坐标通过迭代反算转换为 WGS-84；TREK 发来的 bias 中心先转为 GCJ-02。所有转换为纯函数，纬经度零值有效。使用 Natural Earth 1:10m CHN 多边形判断转换范围，包含海南；港澳台及境外坐标按任务要求原样返回。
+按[高德官方坐标说明](https://lbs.amap.com/faq/advisory/others/39840/)，中国大陆、香港、澳门、台湾返回 GCJ-02，海外返回 WGS-84。Adapter 对上述 GCJ-02 范围内的 POI 迭代反算为 WGS-84，对 TREK 发来的 bias 中心进行反向转换；海外坐标保持不变。所有转换为纯函数，经纬度零值有效。
+
+范围数据采用 Natural Earth 1:10m 的 CHN、HKG、MAC、TWN 四组几何，包含海南及数据内的离岛。香港、澳门使用各自包围范围覆盖港口及机场填海区；港澳台近岸增加 1 km 容差，大陆与其他国家的边界不扩张。这是服务用的近似范围，具体限制见[坐标验证](docs/coordinate-validation.md)。
+
+升级到此修复后重启 Adapter，清空旧内存缓存。此前在 TREK 中保存的港澳台错误坐标不会自动改写，需要重新搜索并更新地点。
 
 文本搜索没有 Google circle bias 的直接对应参数：先用 `/v3/geocode/regeo` 获取中心城市，再传 `region` 和 `city_limit=false`。输入提示使用 `city`、GCJ-02 `location` 和 `citylimit=false`。矩形取中心，支持跨日期变更线。城市解析限时 1.5 秒，结果缓存一天；失败短暂缓存 5 秒并回退普通关键词搜索。
 
@@ -149,7 +153,7 @@ npm run smoke
 
 `smoke` 需要 `.env` 或环境中的 `AMAP_KEY`，会真实调用高德并消耗配额，按任务书的十个 POI 依次验证搜索、提示与详情，保存实际 GCJ-02/WGS-84 坐标到已忽略的 `docs/smoke-results.json`。未设置 Key 时明确跳过。API 通过后还需在 TREK 中确认名称、地址、地图 Marker、保存重开和重启结果；脚本不会声称已完成这些人工步骤。
 
-2026-09-12 验收：Windows Node.js 24 和 WSL Docker 内 Linux Node.js 22 下 **145 项测试通过**，类型/Lint/格式/生产构建通过。Docker amd64 镜像、完整 Compose 栈、真实高德十地点搜索/提示/详情、TREK 容器到适配器的调用链、非 root/只读运行、健康检查与适配器重启后详情均通过。详见 [WSL 验收记录](docs/wsl-validation.md)。
+2026-09-12 验收：Windows Node.js 24 和 WSL Docker 内 Linux Node.js 22 下 **161 项测试通过**，类型/Lint/格式/生产构建通过，包含港澳台转换范围及接口回归。此前已通过 Docker amd64 镜像、完整 Compose 栈、真实高德十地点搜索/提示/详情、TREK 容器到适配器的调用链、非 root/只读运行、健康检查与适配器重启后详情。详见 [WSL 验收记录](docs/wsl-validation.md)。
 
 OpenFreeMap Marker 视觉对照及 TREK 界面保存/重开/重启仍需人工验收；本机未配置 ARM64 仿真，ARM64 容器尚未运行。仓库已配置双架构 CI，尚未远程执行。
 

@@ -9,7 +9,7 @@
 - `src/app.ts`、`server.ts`、`config.ts`、`service.ts`、`cache.ts`、`errors.ts`：服务与生命周期。
 - `src/amap/`：固定域名 HTTP 客户端、响应 schema、POI/提示 mapper。
 - `src/google/`：TREK 请求 schema、输出类型和 ID 编解码。
-- `src/geo/`：大陆范围数据、范围判断、坐标正反转换。
+- `src/geo/`：高德 GCJ-02 适用范围数据、范围判断、坐标正反转换。
 - `test/`：坐标、ID、mapper、缓存、TREK HTTP 契约、异常和密钥保护测试。
 - `scripts/smoke.ts`：使用真实 Key 的十地点 API 验证与坐标记录。
 - `Dockerfile`、`.dockerignore`、`docker-compose.example.yml`、`.env.example`：部署。
@@ -30,22 +30,22 @@ TREK main/v4.2.1 的 9 处 Google Places 调用中，media 在空照片列表下
 
 ## 坐标策略
 
-大陆 POI GCJ-02→WGS-84 使用迭代逼近，bias WGS-84→GCJ-02；Natural Earth 大陆多边形外原样返回。输入校验经纬度，不混用经纬顺序。离线六城市反算测试已通过，真实 Marker 位置尚未验证；见 [coordinate-validation.md](coordinate-validation.md)。
+按[高德官方说明](https://lbs.amap.com/faq/advisory/others/39840/)，大陆、香港、澳门、台湾 POI 使用 GCJ-02→WGS-84 迭代反算，bias 使用 WGS-84→GCJ-02，海外原样返回。Natural Earth 范围已补入 HKG、MAC、TWN，香港和澳门包含港口及填海区，港澳台有 1 km 近岸容差。输入校验经纬度，不混用经纬顺序。大陆及港澳台离线坐标、搜索/详情输出和 bias 回归已通过，真实 Marker 位置尚未验证；见 [coordinate-validation.md](coordinate-validation.md)。
 
 ## 验证结果
 
-| 检查                                               | 结果                       |
-| -------------------------------------------------- | -------------------------- |
-| Windows Node.js 24.14.0：145 项自动测试            | 通过                       |
-| WSL Docker / Linux Node.js 22.23.2：145 项自动测试 | 通过                       |
-| TypeScript strict、ESLint、Prettier、生产构建      | 通过                       |
-| 依赖安装时 npm audit                               | 0 vulnerabilities          |
-| 真实高德十地点 API 验收                            | 搜索、提示、详情全部通过   |
-| OSM/OpenFreeMap 视觉对照                           | 真实坐标已记录，视觉待确认 |
-| TREK 保存、重开、重启人工验收                      | 未执行                     |
-| WSL Docker amd64 与完整 Compose 栈                 | 通过                       |
-| ARM64 容器运行                                     | 未执行，本机无 ARM64 仿真  |
-| GitHub Actions                                     | 已配置，尚未推送/运行      |
+| 检查                                               | 结果                                                                              |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Windows Node.js 24.14.0：161 项自动测试            | 通过                                                                              |
+| WSL Docker / Linux Node.js 22.23.2：161 项自动测试 | 通过                                                                              |
+| TypeScript strict、ESLint、Prettier、生产构建      | 通过                                                                              |
+| 依赖安装时 npm audit                               | 0 vulnerabilities                                                                 |
+| 真实高德十地点 API 验收                            | 搜索、提示、详情全部通过                                                          |
+| OSM/OpenFreeMap 视觉对照                           | 真实坐标已记录，视觉待确认                                                        |
+| TREK 保存、重开、重启人工验收                      | 未执行                                                                            |
+| WSL Docker amd64 与完整 Compose 栈                 | 通过                                                                              |
+| ARM64 容器运行                                     | 未执行，本机无 ARM64 仿真                                                         |
+| GitHub Actions                                     | 已配置，结果见[仓库 Actions](https://github.com/sky1wu/trek-amap-adapter/actions) |
 
 自动接口测试包含模拟持久化 ID 后新建 Adapter 实例重新解析；它不能替代实际 TREK 数据库/界面重启验收。
 

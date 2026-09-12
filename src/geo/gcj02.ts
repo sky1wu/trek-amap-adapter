@@ -1,4 +1,4 @@
-import { isInsideChina } from './china.js';
+import { isInAmapGcj02Region } from './china.js';
 import { isValidCoordinate, type Coordinate } from './types.js';
 
 const PI = Math.PI;
@@ -55,14 +55,14 @@ function validate(point: Coordinate): void {
 
 export function wgs84ToGcj02(point: Coordinate): Coordinate {
   validate(point);
-  return isInsideChina(point) ? transform(point) : { ...point };
+  return isInAmapGcj02Region(point) ? transform(point) : { ...point };
 }
 
 export function gcj02ToWgs84(point: Coordinate): Coordinate {
   validate(point);
-  if (!isInsideChina(point)) return { ...point };
+  if (!isInAmapGcj02Region(point)) return { ...point };
   let guess = { ...point };
-  // Keep the mainland decision fixed during iteration, avoiding mask oscillation.
+  // Keep the coverage decision fixed during iteration, avoiding mask oscillation.
   for (let iteration = 0; iteration < 30; iteration++) {
     const projected = transform(guess);
     const dx = projected.longitude - point.longitude;

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { wgs84ToGcj02 } from '../src/geo/gcj02.js';
 import { biasCenter } from '../src/google/requests.js';
 import type { GooglePlace } from '../src/google/types.js';
+import { regionalCoordinates } from './coordinate-fixtures.js';
 import {
   circle,
   defaultResponse,
@@ -26,6 +27,56 @@ afterEach(async () => {
 });
 
 describe('current TREK request contract', () => {
+  it.each(regionalCoordinates)(
+    '$name converts search/detail output and search/autocomplete bias',
+    async ({ name, citycode, wgs84, gcj02 }) => {
+      const location = `${gcj02.longitude},${gcj02.latitude}`;
+      const { app, calls } = setup(async (url) => {
+        if (url.pathname.endsWith('/regeo'))
+          return jsonResponse({
+            status: '1',
+            infocode: '10000',
+            regeocode: { addressComponent: { citycode } },
+          });
+        if (url.pathname.endsWith('/inputtips'))
+          return jsonResponse({
+            status: '1',
+            infocode: '10000',
+            tips: [{ ...tip, name, location }],
+          });
+        return jsonResponse({ status: '1', infocode: '10000', pois: [{ ...poi, name, location }] });
+      });
+      const locationBias = { circle: { center: wgs84, radius: 1000 } };
+      const search = await app.inject({
+        method: 'POST',
+        url: '/v1/places:searchText',
+        payload: { textQuery: name, locationBias },
+      });
+      expect(search.statusCode).toBe(200);
+      const searched = search.json<{ places: GooglePlace[] }>().places[0];
+      expect(searched?.location.longitude).toBeCloseTo(wgs84.longitude, 8);
+      expect(searched?.location.latitude).toBeCloseTo(wgs84.latitude, 8);
+      const autocomplete = await app.inject({
+        method: 'POST',
+        url: '/v1/places:autocomplete',
+        payload: { input: name, locationBias },
+      });
+      expect(autocomplete.statusCode).toBe(200);
+      const id = autocomplete.json<{ suggestions: { placePrediction: { placeId: string } }[] }>()
+        .suggestions[0]?.placePrediction.placeId;
+      expect(id).toBe(searched?.id);
+      const details = await app.inject(`/v1/places/${id}`);
+      expect(details.statusCode).toBe(200);
+      expect(details.json<GooglePlace>().location).toEqual(searched?.location);
+      const expectedLocation = `${gcj02.longitude.toFixed(6)},${gcj02.latitude.toFixed(6)}`;
+      expect(calls[0]?.url.searchParams.get('location')).toBe(expectedLocation);
+      expect(calls[1]?.url.searchParams.get('region')).toBe(citycode);
+      expect(calls[2]?.url.searchParams.get('location')).toBe(expectedLocation);
+      expect(calls[2]?.url.searchParams.get('city')).toBe(citycode);
+      expect(calls[3]?.url.pathname).toBe('/v5/place/detail');
+    },
+  );
+
   it('searches with the actual field mask and WGS84 circle, retaining nationwide recall', async () => {
     const { app, calls } = setup();
     const res = await app.inject({

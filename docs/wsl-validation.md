@@ -2,7 +2,13 @@
 
 日期：2026-09-12（Asia/Hong_Kong）。Ubuntu WSL2、Linux 6.6.87.2、Docker 29.6.1、Compose v5.3.0；宿主架构 linux/amd64，镜像内 Node.js v22.23.2。
 
-## 已通过
+## 港澳台坐标修复复测
+
+2026-09-12 修正港澳台转换范围后，Windows Node.js 24.14.0 与 WSL Docker Node.js 22.23.2 均通过 `npm run check`：TypeScript、ESLint、Prettier、161 项自动测试和生产构建。WSL 测试容器禁用网络，使用本次新构建的源码与范围数据。
+
+回归包含香港、澳门、台湾的双向转换、固定数值向量、搜索与详情输出、自动补全到详情，以及搜索/自动补全 bias；还覆盖香港机场、澳门路氹、澎湖、金门等地点及海外不转换。详见[坐标验证](coordinate-validation.md)。此次复测不包含港澳台真实 POI 的底图视觉验收。
+
+## 首次验证已通过
 
 - Linux 生产镜像构建，生产依赖安装审计为 0 vulnerabilities。
 - Linux 构建容器禁用网络运行 145 项测试，全部通过。

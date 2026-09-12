@@ -1,6 +1,5 @@
 node_modules/
 dist/
 coverage/
-src/geo/mainland.json
+src/geo/amap-gcj02-region.json
 任务书.md
-
