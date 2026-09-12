@@ -1,0 +1,77 @@
+--- a/client/src/components/Planner/DayPlanSidebar.tsx
++++ b/client/src/components/Planner/DayPlanSidebar.tsx
+@@ -10,6 +10,7 @@
+ import { assignmentsApi, reservationsApi, daysApi } from '../../api/client'
+ import { calculateRouteWithLegs, optimizeRoute, generateGoogleMapsUrl, generateCoMapsUrl, type NamedWaypoint } from '../Map/RouteCalculator'
+ import GoogleMapsIcon from '../shared/GoogleMapsIcon'
++import { resolvePluginIcon } from '../shared/PluginIcon'
+ import PlaceAvatar from '../shared/PlaceAvatar'
+ import ConfirmDialog from '../shared/ConfirmDialog'
+ import { useContextMenu, ContextMenu } from '../shared/ContextMenu'
+@@ -1204,12 +1205,12 @@
+   // day belongs to. Empty unless a granted plugin provides them.
+   const dayTints = usePluginDayTints(S.tripId)
+   const routeProfileOptions = useMemo(() => {
+-    const opts: Array<{ key: string; label: string }> = [
++    const opts: Array<{ key: string; label: string; icon?: string }> = [
+       { key: 'driving', label: 'Driving' },
+       { key: 'walking', label: 'Walking' },
+     ]
+     for (const p of activePlugins) {
+-      for (const prof of p.routeProfiles ?? []) opts.push({ key: `plugin:${p.id}/${prof.id}`, label: prof.label })
++      for (const prof of p.routeProfiles ?? []) opts.push({ key: `plugin:${p.id}/${prof.id}`, label: prof.label, ...(prof.icon ? { icon: prof.icon } : {}) })
+     }
+     return opts
+   }, [activePlugins])
+@@ -2819,7 +2820,7 @@
+                         </button>
+                         <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-faint)', flexShrink: 0 }}>
+                           {routeProfileOptions.map(p => {
+-                            const ModeIcon = p.key === 'driving' ? Car : p.key === 'walking' ? Footprints : Zap
++                            const ModeIcon = p.key === 'driving' ? Car : p.key === 'walking' ? Footprints : p.icon ? resolvePluginIcon(p.icon) : Zap
+                             const active = (day.default_transport_mode ?? routeProfile) === p.key
+                             return (
+                               <button type="button"
+--- a/client/src/components/Planner/DayPlanSidebarRouteConnector.tsx
++++ b/client/src/components/Planner/DayPlanSidebarRouteConnector.tsx
+@@ -1,12 +1,17 @@
+ import { Car, Footprints, Hotel, Zap } from 'lucide-react'
+ import type { RouteSegment } from '../../types'
++import { usePluginStore } from '../../store/pluginStore'
++import { resolvePluginIcon } from '../shared/PluginIcon'
+
+-// Walking gets the foot icon; a plugin route profile ('plugin:…') gets the bolt —
+-// its legs carry the profile-true durationText anyway, the icon just signals that
+-// the time came from a plugin router (e.g. EV routing with charge time folded in).
+-function profileIcon(profile: string) {
++// Use the declared profile icon consistently with the route picker.
++function useProfileIcon(profile: string) {
++  const plugins = usePluginStore(s => s.plugins)
+   if (profile === 'walking') return Footprints
+-  if (profile.startsWith('plugin:')) return Zap
++  if (profile.startsWith('plugin:')) {
++    const [pluginId, profileId] = profile.slice('plugin:'.length).split('/')
++    const icon = plugins.find(p => p.id === pluginId)?.routeProfiles?.find(p => p.id === profileId)?.icon
++    return icon ? resolvePluginIcon(icon) : Zap
++  }
+   return Car
+ }
+
+@@ -15,7 +20,7 @@
+   // The leg's own mode (#1281) wins over the day-wide fallback for icon + text.
+   const effProfile = seg.mode ?? profile
+   const driving = effProfile !== 'walking'
+-  const Icon = profileIcon(effProfile)
++  const Icon = useProfileIcon(effProfile)
+   const line = { flex: 1, height: 1, minHeight: 1, alignSelf: 'center', background: 'var(--border-primary)' }
+   return (
+     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 14px', fontSize: 'calc(10.5px * var(--fs-scale-caption, 1))', color: 'var(--text-faint)', lineHeight: 1.2 }}>
+@@ -56,7 +61,7 @@
+ }) {
+   const effProfile = seg.mode ?? profile
+   const driving = effProfile !== 'walking'
+-  const Icon = profileIcon(effProfile)
++  const Icon = useProfileIcon(effProfile)
+   const line = { flex: 1, height: 1, minHeight: 1, alignSelf: 'center', background: 'var(--border-primary)' }
+   const hotelRow = (
+     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '0 14px', minWidth: 0 }}>
